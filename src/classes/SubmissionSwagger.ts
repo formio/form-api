@@ -55,7 +55,7 @@ export class SubmissionSwagger extends ResourceSwagger {
       }
 
       const property = this.getComponentProperty(
-        component.type,
+        component,
         {multiple: component.multiple},
       );
 
@@ -76,10 +76,15 @@ export class SubmissionSwagger extends ResourceSwagger {
     return schema;
   }
 
-  private getComponentProperty(type: string, options: any) {
+  private getComponentProperty(component: any, options: any) {
     let property: any;
+    let datagrid = {
+      type: 'object',
+      properties: {},
+      required: [],
+    };
 
-    switch (type) {
+    switch (component.type) {
       case 'email':
       case 'textfield':
       case 'password':
@@ -128,7 +133,35 @@ export class SubmissionSwagger extends ResourceSwagger {
         };
         break;
       case 'datagrid':
-        // TODO: finish datagrid swagger def.
+        utils.eachComponent(component.components, (component: any) => {
+          if (!component.key) {
+            return;
+          }
+
+          const property = this.getComponentProperty(
+            component,
+            { multiple: component.multiple },
+          );
+
+          if (property) {
+            datagrid.properties[component.key] = property;
+          }
+
+          if (component.validate && component.validate.required) {
+            datagrid.required.push(component.key);
+          }
+        });
+
+        // We should delete it because OpenAPI spec doesn't allow empty array of required
+        if (datagrid.required.length === 0) {
+          delete datagrid.required;
+        }
+        property = {
+          type: 'array',
+          items: datagrid
+        };
+        // Prevent eachComponent from going through these components again
+        component.components = [];
         break;
       case 'custom':
         property = {
